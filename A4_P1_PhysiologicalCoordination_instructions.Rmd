@@ -3,6 +3,8 @@ title: "Assignment 4 - Heart rate, respiration and interpersonal coordination"
 author: "Riccardo Fusaroli"
 date: "August 20, 2019"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -54,9 +56,36 @@ N.B. to give you a bit more data I included data from previous years (Study1, St
 
 ```{r}
 # Load the libraries
+install.packages("jtools")
+install.packages("ggstance")
+install.packages("pacman")
+library(tidyverse, tidymodels)
+library(ggstance)
+library(jtools)
+library(goeveg)
+library(DescTools)
+pacman::p_load(pacman, tidyverse, tidymodels, groupdata2, lmerTest, lme4, kernlab, caret, dplyr)
+pacman::p_load(goeveg, DescTools, knitr, devtools, tidyr)
 
 # Load the file
+data <- read.csv('~/Desktop/Cognitive Science/Cognitive Science 3rd semester/Experimental Methods 3/Afleveringer/Assignment_4/data/Study1_G1_T1_Synchronous.csv')
+
 # Plot
+#Respiration 
+p1 <- ggplot(data=data, aes(x=time)) +
+  geom_line(aes(y= Resp1, color = "Resp1"))+
+  geom_line(aes(y= Resp2, color = "Resp2"))+
+  labs( x= "Time", y= "Resp")+
+  theme_classic()
+p1
+
+#Heart Rate 
+p2 <- ggplot(data=data, aes(x=time)) +
+  geom_line(aes(y= HR1, color = "HR1"))+
+  geom_line(aes(y= HR2, color = "HR2"))+
+  labs( x= "Time", y= "Heart Rate")+
+  theme_classic()
+p2
 
 ## Remove outliers
 
@@ -70,43 +99,89 @@ removeOuts <- function(ts,threshold){
 }
 threshold=2.5 # Default value at 2.5 sds from the mean
 
+#adding columns with the outliers removed for Respiration 
+data$RespR1_noOuts <- removeOuts(data$Resp1, threshold)
+data$RespR2_noOuts <- removeOuts(data$Resp2, threshold)
 
-# Plot raw data againt those with the artiacts removed
+#adding columns for the outliers removed for Heart Rate 
+data$HR1R_noOuts <- removeOuts(data$HR1, threshold)
+data$HR2R_noOuts <- removeOuts(data$HR2, threshold)
 
+### Tip: if scale() gives some issues, try the one below
+z_scale <- function(column){
+  column_d <- (column - mean(column)) / sd(column)
+}
 
 ## Scale
-### Tip: if scale() gives some issues, try the one below
-#z_scale <- function(column){
-#  column_c <- (column - mean(column)) / sd(column)
-#}
+data$RespR1_scaled <- z_scale(data$RespR1_noOuts)
+data$RespR2_scaled <- z_scale(data$RespR2_noOuts)
 
-# Plot again to check how scaled data look like
+data$HR1R_scaled <- z_scale(data$HR1R_noOuts)
+data$HR2R_scaled <- z_scale(data$HR2R_noOuts)
+
+
+# Plot raw data againt those with the artiacts removed
+#Here we are just plotting all the columns as individual y-axis on the same x-axis 
+p3 <- ggplot(data=data, aes(x=time)) +
+  geom_line(aes(y= Resp1, color = "Resp1"))+
+  geom_line(aes(y= Resp2, color = "Resp2"))+
+  geom_line(aes(y= RespR1_noOuts, color = "RespR1 - no outlier"))+
+  geom_line(aes(y= RespR2_noOuts, color = "RespR2"))+
+  labs( x= "Time", y= "Resp")
+p3
+
+
+p4 <- ggplot(data=data, aes(x=time)) +
+  geom_line(aes(y= HR1, color = "HR1"))+
+  geom_line(aes(y= HR2, color = "HR2"))+
+  geom_line(aes(y= HR1R_noOuts, color = "HR1R"))+
+  geom_line(aes(y= HR2R_noOuts, color = "HR2R"))+
+  labs( x= "Time", y= "Resp")
+  p4
+
+
+# Ploting normal outlier removed data and scaled data
+
+p5 <- ggplot(data=data, aes(x=time)) +
+  geom_line(aes(y= RespR1_scaled, color = "RespR1S"))+
+  geom_line(aes(y= RespR2_scaled, color = "RespR2S"))+
+  geom_line(aes(y= RespR1_noOuts, color = "RespR1"))+
+  geom_line(aes(y= RespR2_noOuts, color = "RespR2"))+
+  labs( x= "Time", y= "Resp")
+p5
+
+p6 <- ggplot(data=data, aes(x=time)) +
+  geom_line(aes(y= HR1R_scaled, color = "HR1"))+
+  geom_line(aes(y= HR2R_scaled, color = "HR2"))+
+  geom_line(aes(y= HR1R_noOuts, color = "HR1R"))+
+  geom_line(aes(y= HR2R_noOuts, color = "HR2R"))
+  labs( x= "Time", y= "Resp")
+  p6
+
 
 
 ## Downsample
 ### This is tricky, so you can have a look at my code  (relying on Ludvig's groupdata2) if you get stuck
-#d1 = d %>%
-#  group(n = 100, method = 'greedy') %>%
-#  dplyr::summarise(
-#    time = mean(time,na.rm=T),
-#    HR1 = mean(HR1S,na.rm=T),
-#    HR2 = mean(HR2S,na.rm=T),
-#    Resp1 = mean(Resp1S,na.rm=T),
-#    Resp2 = mean(Resp2S,na.rm=T),
-#    rowname = rowname[1]) #the index we use to put them back together 
+d1 = data %>%
+ group(n = 100, method = 'greedy') %>%
+ dplyr::summarise(
+   time = mean(time,na.rm=T),
+   HR1 = mean(HR1R_scaled,na.rm=T),
+   HR2 = mean(HR2R_scaled,na.rm=T),
+   Resp1 = mean(RespR1_scaled,na.rm=T),
+   Resp2 = mean(RespR2_scaled,na.rm=T))
 
 ## Plot the downsampled data
-p4 <- ggplot(data = d1) +
+p7 <- ggplot(data = d1) +
   geom_path(aes(time, Resp1, color = "P1")) +
   geom_path(aes(time, Resp2, color = "P2")) +
   labs(x = "time", y = "Resp") +
   theme(legend.position="bottom")
-p4
+p7
 
 ## Now add the group, trial, condition to the cleaned up, scaled, downsampled data
 ## Tip the info is in the file name
-
-
+    
 ```
 
 
@@ -121,31 +196,119 @@ A couple of tips:
 
 
 ```{r}
-# Define a function running the loading, artifact removal, scaling, downsampling, info adding.
-
 data_preprocess <- function(filename, threshold = 2.5){
   
-  # To be filled in
+  # load the data
+  data <- read_csv(filename)
   
-  return(d1)
-
+  # remove outliers
+  data$Resp1 <- removeOuts(data$Resp1, threshold)
+  data$Resp2 <- removeOuts(data$Resp2, threshold)
+  data$HR1 <- removeOuts(data$HR1, threshold)
+  data$HR2 <- removeOuts(data$HR2, threshold)
+  
+  # scale variables
+  data$HR1Scaled <- scale(data$HR1)
+  data$HR2Scaled <- scale(data$HR2)
+  data$Resp1Scaled <- scale(data$Resp1)
+  data$Resp2Scaled <- scale(data$Resp2)
+  
+  # downsample the data
+  data <- data %>% 
+    group(n = 1000, method = 'greedy') %>% 
+    dplyr::summarise(
+      time = mean(time, na.rm=T),
+      HR1 = mean(HR1Scaled, na.rm=T),
+      HR2 = mean(HR2Scaled, na.rm=T),
+      Resp1 = mean(Resp1Scaled, na.rm=T),
+      Resp2 = mean(Resp2Scaled, na.rm=T))
+  
+  # create list with new variable indeces
+  fileIndex <- unlist(str_extract_all(filename, "\\d"))
+  # create list with condition indeces
+  conditionIndex <- unlist(str_split(filename, "T*_"))
+  conditionIndex <- str_remove(conditionIndex[4], ".csv")
+  
+  data <- data %>%
+    add_column(study = fileIndex[2]) %>% 
+    add_column(group = fileIndex[3]) %>% 
+    add_column(trial = fileIndex[4]) %>% 
+    add_column(condition = conditionIndex) %>% 
+    add_column(ID = paste(fileIndex[2], fileIndex[3], fileIndex[4],
+                          conditionIndex))
+  
+  return(data)
 }
 
-#  Identify all files to be read
 
-# Run the function on the whole dataset using map_df
+# Run function on all files
+data <- list.files(path = "/Users/bertram/desktop/folders/R/AssignmentFour/data", pattern = ".csv", full.names=T) %>% 
+    purrr::map_df(data_preprocess)
 
-         
+# remove spaces from ID-column
+data$ID <- str_replace_all(data$ID, " ", "")
+
+# make ID-column into type factor
+data$ID <- as.numeric(as.factor(data$ID))
+
+# Save data frame
+write_csv(data_list, "full_data.csv")
+```
+
+```{r}
+# Loading real data
+full_data <- read.csv('~/Desktop/Cognitive Science/Cognitive Science 3rd semester/Experimental Methods 3/Afleveringer/Assignment_4/dataAssignment1000.csv')
+
 # Now we need to make sure all the data are meaningful or something has to be removed
 # E.g. "Study1_G1_T1_Synchronous" has one bad respiration signal. We could replace it with NAs
 
 # plots plots plots
+# Study 4 plots two at a time
+for(i in seq(from=58, to=97, by=2)) {
+  pl <- full_data %>%
+    filter(study==4, ID==c(i, (i+1))) %>% 
+    group_by(group,trial) %>% 
+    mutate(time = seq(n())) %>% 
+    ggplot()+
+    geom_line(aes(time,HR1, colour="blue", group=ID))+
+    geom_line(aes(time,HR2, colour="red",group=ID))+
+    theme_classic()+
+    facet_wrap(group~trial)
+  plot(pl)
+}
 
-# Remove bad data
+# Set time to sequence of seconds
+data4 <- full_data %>% 
+  filter(study==4) %>% 
+  group_by(ID) %>%
+  mutate(time = seq(n())) 
+
+
+
+# Remove bad data(detects straight lines) - pitfall: removes 
+for (i in seq(NROW(data4))){
+  if (i+5 > length(seq(NROW(data4)))) {
+    data4$HR1[i]=NA
+  } else if (mean(data4$ID[i:(i+5)]) != data4$ID[i]) {
+    data4$HR1[i] = NA
+  } else if ((sd(data4$HR1[i:(i+5)])) < 0.1) {
+    data4$HR1[i] = NA
+  } 
+}
+
+for (j in seq(NROW(data4))){
+  if (j+5 > length(seq(NROW(data4)))) {
+    data4$HR2[j]=NA
+  } else if (mean(data4$ID[j:(j+5)]) != data4$ID[j]) {
+    data4$HR2[j] = NA
+  } else if ((sd(data4$HR2[j:(j+5)])) < 0.1) {
+    data4$HR2[j] = NA
+  } 
+}
 
 # Save the data
-
 ```
+
 
 ## Now we need to run some analysis
 
@@ -170,15 +333,62 @@ Bonus question: what if we include an additional layer? Is my heart rate just ad
 
 
 ```{r}
-
 # Genearate a column for each: previous HR1, HR2, Resp1, Resp2
-# Genearate a column for each: change in HR1, HR2, Resp1, Resp2
+data4 <- data4 %>% 
+  group_by(ID )%>% 
+  mutate(HR1_change = lead(HR1)-HR1, HR2_change = lead(HR2)-HR2)
+
+# Make the data long, so we can analyze both participants at the same time
+HR_other <- data4 %>%
+  select(HR1, HR2, ID) %>% 
+  gather("P", "HR_other", 2:1) %>% 
+  ungroup() %>%
+  select(HR_other)
+
+HR_other <- as.data.frame(HR_other)
+
+HR_change <- data4 %>%
+  select(HR1_change, HR2_change, ID) %>% 
+  gather("Person", "HR_change", 1:2) %>% 
+  ungroup() %>%
+  select(HR_change, Person) %>% 
+  mutate(Person = as.factor(Person))
+
+HR_change <- as.data.frame(HR_change)
+
+HR_change_other <- data4 %>%
+  select(HR1_change, HR2_change, ID) %>% 
+  gather("Person", "HR_change_other",2:1) %>% 
+  ungroup() %>%
+  select(HR_change_other)
+
+HR_change_other <- as.data.frame(HR_change_other)
+
+model_data <- data4 %>%
+  gather("Person", "HR_self", 3:4) %>% 
+  select(time, study, group, trial, condition, ID, HR_self)
 
 
-# Make the data long, so we can analyze both participants at the same time 
-## N.B. This is a bit tricky and you might have to do it in several steps
+model_data <- as.data.frame(model_data)
+model_data$type <- 1
+
+model_data <- cbind(model_data, HR_other, HR_change, HR_change_other)
+
 
 # Set the most interesting contrast e.g. by defining synchronous or conversation as the baseline
+model_1 <- lm(HR_change ~ 0 + condition + (HR_self+HR_other):condition, data=model_data)
+summary(model_1)
+plot_summs(model_1)
+
+
+model_2 <- lmer(HR_change ~ 0 + condition + (HR_self+HR_other):condition + (1+HR_self| ID) + (1+HR_self| group), data=model_data)
+summary(model_2)
+summ(model_2, digits=3)
+
+model_0 <- lmer(HR_change ~ 1 + (HR_self+HR_other)*condition + (1+HR_self| ID) + (1+HR_self| group), data=model_data)
+summary(model_0)
+summ(model_0, digits=3)
+
 
 # Model change as a function of own and other previous state 
 
@@ -200,10 +410,21 @@ Tip: sample() is your friend, but make sure to shuffle things within participant
 ```{r}
 
 # Create a shuffled dataset
+
+shuffled_data <- model_data %>% 
+  group_by(ID, Person) %>% 
+  mutate(HR_self = sample(HR_self), HR_other = sample(HR_other)) %>% 
+  mutate(HR_change = lead(HR_self)-HR_self, HR_change_other = lead(HR_other)-HR_other, type = 0)
+
+shuffled_data <- as.data.frame(shuffled_data)
 # Concatenate it to the original dataset (and remember to have a column telling you which is which)
+shuffled_model_data <- rbind(shuffled_data, model_data)
+shuffled_model_data$type <- as.factor(shuffled_model_data$type)
 
 # Create the same models as in the previous chunk, but adding an interaction by shuffled vs. real
-
+model_3 <- lmerTest::lmer(HR_change ~ (HR_self+HR_other):condition:type + (1 | ID) +(1 | group), data=shuffled_model_data)
+summary(model_3)
+summ(model_3, digits=3)
 ```
  
  
@@ -213,13 +434,86 @@ Tip: sample() is your friend, but make sure to shuffle things within participant
 ```{r}
 
 # Identify unique pairs within a given study (to keep things manageable) and create list of possible surrogate pairs (e.g. individual 1 from pair 1 and individual 2 from pair 2)
+Groups <- as.numeric(as.character(unique(model_data$group)))
+SurrogateList <- expand.grid(a = Groups, b = Groups)
+SurrogateList <- subset(SurrogateList, a != b)
 
-# Starting from the wide format, create "surrogate" dataset with the data from surrogate pairs
+surrogate_data <- data.frame()
+data4 <- data4 %>% ungroup()
+
+for (d in 1:nrow(SurrogateList)) {
+  x <- subset(data4, group==SurrogateList$a[d])
+  y <- subset(data4, group==SurrogateList$b[d])
+  
+  for (co in c("Synchronous","TurnTaking","SelfPaced","Conversation", "MovementGuided")) {
+      
+      z1 <- as.data.frame(subset(x,condition==co))
+      z2 <- as.data.frame(subset(y,condition==co))
+      z1 <- z1 %>% mutate(ID=paste(as.character(SurrogateList$a[d]),as.character(SurrogateList$b[d]),co, sep=""))
+      
+      if (NROW(z1) > NROW(z2)) {
+        z1 <-  z1[c(1:nrow(z2)),]
+      }
+      if (NROW(z2) > NROW(z1)) {
+        z2 <-  z2[c(1:nrow(z1)),]
+        }
+        
+        w1 <- z1 %>% mutate(
+          HR2 = z2$HR2,
+          HR2_change = z2$HR2_change) 
+        
+        surrogate_data <- rbind(surrogate_data,w1)
+  }}
+      
+
+sur_other <- surrogate_data %>%
+  select(HR1, HR2) %>% 
+  gather("P", "HR_other", 2:1) %>% 
+  select(HR_other)
+
+sur_other <- as.data.frame(sur_other)
+
+sur_change <- surrogate_data %>%
+  select(HR1_change, HR2_change) %>% 
+  gather("Person", "HR_change", 1:2) %>% 
+  select(HR_change, Person) %>% 
+  mutate(Person = as.factor(Person))
+
+sur_change <- as.data.frame(sur_change)
+
+sur_change_other <- surrogate_data %>%
+  select(HR1_change, HR2_change) %>% 
+  gather("Person", "HR_change_other",2:1) %>% 
+  select(HR_change_other)
+
+sur_change_other <- as.data.frame(sur_change_other)
+
+sur_data <- surrogate_data %>%
+  gather("Person", "HR_self", 3:4) %>% 
+  select(time, study, group, trial, condition, ID, HR_self)
+
+
+sur_data <- as.data.frame(sur_data)
+nsur_data$type <- 0
+
+sur_data <- cbind(sur_data, sur_other, sur_change, sur_change_other)
+
+sur_model_data <- rbind(sur_data, model_data)
+sur_model_data$type <- as.factor(sur_model_data$type)
+
+model_4 <- lmer(HR_change ~ 0 + condition + (HR_self+HR_other):condition:type + (1+HR_self| ID) + (1+HR_self| group), data=sur_model_data)
+summary(model_4)
+summ(model_4, digits=3)
+
+model_5 <- lm(HR_change ~ 0 + condition + (HR_self+HR_other):condition:type, data=sur_model_data)
+summary(model_5)
+summ(model_5, digits=3)
+
+  # Starting from the wide format, create "surrogate" dataset with the data from surrogate pairs
 
 # Make it into long format
 
 # Create models as in chunks above, but adding an interaction with the Real vs. Surrogate variable (exclude shuffled ones for simplicity)
-
 
 
 ```
