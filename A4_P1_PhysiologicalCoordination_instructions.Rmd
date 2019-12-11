@@ -493,7 +493,7 @@ sur_data <- surrogate_data %>%
 
 sur_data <- as.data.frame(sur_data)
 # Giving surrogate pairs data label: type = 0
-nsur_data$type <- 0
+sur_data$type <- 0
 
 # Bind relevant collumns
 sur_data <- cbind(sur_data, sur_other, sur_change, sur_change_other)
