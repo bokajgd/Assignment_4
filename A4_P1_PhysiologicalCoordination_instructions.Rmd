@@ -491,7 +491,6 @@ sur_data <- surrogate_data %>%
   gather("Person", "HR_self", 3:4) %>% 
   select(time, study, group, trial, condition, ID, HR_self)
 
-
 sur_data <- as.data.frame(sur_data)
 # Giving surrogate pairs data label: type = 0
 nsur_data$type <- 0
